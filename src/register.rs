@@ -1,8 +1,15 @@
+pub enum ConditionFlag
+{
+    ZRO = 1 << 1,
+    POS = 1 << 0,
+    NEG = 1 << 2,
+}
+
 pub struct Registers
 {
     pub general: Vec<u16>,
     pub pc: u16,
-    pub cond: u16,
+    pub cond: ConditionFlag,
 }
 
 impl Registers
@@ -12,7 +19,7 @@ impl Registers
         Registers {
             general: vec![0; reg_count],
             pc: 0,
-            cond: 0,
+            cond: ConditionFlag::ZRO,
         }
     }
 
@@ -25,7 +32,8 @@ impl Registers
     {
         if let Some(reg) = self.general.get_mut(index)
         {
-            *reg = value
+            *reg = value;
+            true
         } else {
             false
         }
@@ -35,11 +43,11 @@ impl Registers
     {
         if result == 0
         {
-            self.cond = 1 << 1; 
+            self.cond = ConditionFlag::ZRO;
         } else if (result >> 15) == 1 {
-            self.cond = 1 << 0;
+            self.cond = ConditionFlag::POS;
         } else {
-            self.cond = 1 << 2;
+            self.cond = ConditionFlag::NEG;
         }
     }
 }
