@@ -1,3 +1,4 @@
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ConditionFlag
 {
     ZRO = 1 << 1,
