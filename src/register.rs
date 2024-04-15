@@ -41,13 +41,11 @@ impl Registers
 
     pub fn update_flags(&mut self, result: u16)
     {
-        if result == 0
+        self.cond = match result
         {
-            self.cond = ConditionFlag::ZRO;
-        } else if (result >> 15) == 1 {
-            self.cond = ConditionFlag::POS;
-        } else {
-            self.cond = ConditionFlag::NEG;
-        }
+            0 => ConditionFlag::ZRO,
+            r if r >> 15 == 1 => ConditionFlag::POS,
+            _ => ConditionFlag::NEG,
+        };
     }
 }
