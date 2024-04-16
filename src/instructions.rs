@@ -1,3 +1,7 @@
+use std::io::{Read, Write};
+use std::process;
+use crate::lc3::VM;
+
 #[derive(Debug)]
 pub enum OpCode
 {
@@ -44,4 +48,87 @@ impl OpCode
         }
     }
 }
+
+pub enum TrapCode
+{
+    GETC = 0x20,
+    OUT = 0x21,
+    PUTS = 0x22,
+    IN = 0x23,
+    PUTSP = 0x24,
+    HALT = 0x25,
+}
+
+impl TrapCode
+{
+    pub fn handle_trap(trap: TrapCode, vm: &mut VM)
+    {
+        match trap
+        {
+            TrapCode::GETC => {
+                let mut buffer = [0; 1];
+                std::io::stdin().read_exact(&mut buffer).unwrap();
+                vm.reg.general[0] = buffer[0] as u16;
+            }
+            TrapCode::OUT => {
+                let c = vm.reg.general[0];
+                print!("{}", c as u8 as char);
+            }
+            TrapCode::PUTS => {
+                let mut pc = vm.reg.pc;
+                let mem = vm.memory.clone();
+                loop {
+                    let c = mem[pc as usize];
+                    if c == 0
+                    {
+                        break;
+                    }
+                    print!("{}", c as u8 as char);
+                    pc += 1;
+                }
+            }
+            TrapCode::IN => {
+               let input = Self::trap_in();
+            }
+            TrapCode::PUTSP => {
+                let mut pc = vm.reg.pc;
+                loop {
+                    let mem_val = vm.memory.get(pc as usize).copied();
+                    match mem_val 
+                    {
+                        Some(val) => {
+                            let c1 = (val & 0x00FF) as u8 as char;
+                            if c1 == '\0'
+                            {
+                                break;
+                            }
+                            print!("{}", c1);
+                            let c2 = !((val & 0xFF00) >> 8) as u8 as char;
+                            if c2 == '\0'
+                            {
+                                break;
+                            }
+                            print!("{}", c2);
+                            pc += 1;
+                        }
+                        None => break,
+                    }
+                }
+            }
+            TrapCode::HALT => {
+                process::exit(0);
+            }
+        }
+    }
+
+    fn trap_in() -> u16 
+    {
+        print!("Enter a character: ");
+        std::io::stdout().flush().unwrap();
+        let mut buffer = [0; 1];
+        std::io::stdin().read_exact(&mut buffer).unwrap();
+        buffer[0] as u16
+    }
+}
+
 
