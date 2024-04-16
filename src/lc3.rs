@@ -1,8 +1,8 @@
-use lc3_vm::register::Registers;
+use crate::register::Registers;
 
 const MEMORY_SIZE: usize = 1 << 16;
 pub struct VM 
 {
-    memory: [u16; MEMORY_SIZE],
-    reg: Registers,
+    pub memory: [u16; MEMORY_SIZE],
+    pub reg: Registers,
 }
