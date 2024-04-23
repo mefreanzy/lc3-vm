@@ -25,6 +25,82 @@ pub enum OpCode
 
 impl OpCode
 {
+    pub fn execute(&self, vm: &mut VM, instruction: u16)
+    {
+        match self {
+            OpCode::BR => {
+                let offset = Self::sign_extend(instruction & 0x1FF, 9);
+                if vm.reg.cond & Self::cc(instruction) != 0 {
+                    vm.reg.cond = vm.reg.pc.wrapping_add(offset);
+                }
+            }
+            OpCode::ADD => {
+                let dr = (instruction >> 9) & 0x7;
+                let sr1 = (instruction >> 6) & 0x7;
+                let imm_flag = (instruction >> 5) & 0x1;
+                if imm_flag != 0
+                {
+                    let imm5 = Self::sign_extend(instruction & 0x1F, 5);
+                    let sr1_val = vm.reg.general[sr1 as usize];
+                    vm.reg.general[dr as usize] = sr1_val.wrapping_add(imm5);
+                } else {
+                    let sr2 = instruction & 0x7;
+                    let sr1_val = vm.reg.general[sr1 as usize];
+                    let sr2_val = vm.reg.general[sr2 as usize];
+                    vm.reg.general[dr as usize] = sr1_val.wrapping_add(sr2_val);
+                }
+                vm.reg.update_flags(vm.reg.general[dr as usize]);
+            }
+            OpCode::LD => {
+                let dr = (instruction >> 9) & 0x7;
+                let pc_offset = Self::sign_extend(instruction & 0x1FF, 9);
+                let addr = vm.reg.pc.wrapping_add(pc_offset);
+                vm.reg.general[dr as usize] = vm.memory[addr as usize];
+                update_flags(vm, dr);
+            }
+            OpCode::ST => {
+                let sr = (instruction >> 9) & 0x7;
+                let pc_offset = Self::sign_extend(instruction & 0x1FF, 9);
+                let addr = vm.reg.pc.wrapping_add(pc_offset);
+                vm.memory[addr as usize] = vm.reg.general[sr as usize];
+            }
+            OpCode::JSR => {
+                let long_flag = (instruction >> 11) & 0x1;
+                let pc_offset = if long_flag != {
+                    Self::sign_extend(instrucion & 0x7FF, 11)
+                } else {
+                    Self::sign_extend(instuction & 0x1FF, 9)
+                };
+                let r7 = vm.reg.general[7];
+                vm.reg.general[7] = vm.reg.pc;
+                if long_flag != 0 
+                {
+                    let r = (instruction >> 6) 0x7;
+                    let val = vm.reg.general[r as usize];
+                    vm.reg.pc = val;
+                } else {
+                    vm.reg.pc = vm.reg.pc.wrapping_add(pc_offset);
+                }
+                vm.reg.pc = r7;
+            }
+        }
+    }
+
+    fn sign_extend(x: u16, bit: usize) -> u16
+    {
+        if (x >> (bit - 1)) & 1 != 0
+        {
+            x | (0xFFFF << bit)
+        } else {
+            x
+        }
+    }
+
+    fn cc(instruction: u16) -> u16
+    {
+        instruction >> 9 & 0x7
+    }
+
     pub fn from_u16(instruction: u16) -> Option<Self>
     {
         match instruction {
