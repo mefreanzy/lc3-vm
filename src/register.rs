@@ -1,9 +1,13 @@
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum ConditionFlag
+use bitflags::bitflags;
+
+bitflags!
 {
-    ZRO = 1 << 1,
-    POS = 1 << 0,
-    NEG = 1 << 2,
+    pub struct ConditionFlag: u16
+    {
+        const ZRO = 0b0000000000000010;
+        const POS = 0b0000000000000001;
+        const NEG = 0b0000000000000100;
+    }
 }
 
 pub struct Registers
