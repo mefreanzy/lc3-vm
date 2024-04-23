@@ -10,3 +10,4 @@ name = "lc3-vm"
 path = "src/lc3.rs"
 
 [dependencies]
+bitflags = "2.5.0"
