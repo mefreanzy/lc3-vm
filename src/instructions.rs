@@ -1,6 +1,6 @@
 use std::io::{Read, Write};
 use std::process;
-use crate::lc3::VM;
+use crate::{lc3::VM, register::ConditionFlag};
 
 #[derive(Debug)]
 pub enum OpCode
@@ -30,7 +30,7 @@ impl OpCode
         match self {
             OpCode::BR => {
                 let offset = Self::sign_extend(instruction & 0x1FF, 9);
-                if vm.reg.cond & Self::cc(instruction) != 0 {
+                if vm.reg.cond.contains(ConditionFlag::ZRO) {
                     vm.reg.cond = vm.reg.pc.wrapping_add(offset);
                 }
             }
@@ -56,7 +56,7 @@ impl OpCode
                 let pc_offset = Self::sign_extend(instruction & 0x1FF, 9);
                 let addr = vm.reg.pc.wrapping_add(pc_offset);
                 vm.reg.general[dr as usize] = vm.memory[addr as usize];
-                update_flags(vm, dr);
+                vm.reg.update_flags(vm.reg.general[dr as usize]);
             }
             OpCode::ST => {
                 let sr = (instruction >> 9) & 0x7;
@@ -66,16 +66,16 @@ impl OpCode
             }
             OpCode::JSR => {
                 let long_flag = (instruction >> 11) & 0x1;
-                let pc_offset = if long_flag != {
-                    Self::sign_extend(instrucion & 0x7FF, 11)
+                let pc_offset = if long_flag != 0 {
+                    Self::sign_extend(instruction & 0x7FF, 11)
                 } else {
-                    Self::sign_extend(instuction & 0x1FF, 9)
+                    Self::sign_extend(instruction & 0x1FF, 9)
                 };
                 let r7 = vm.reg.general[7];
                 vm.reg.general[7] = vm.reg.pc;
                 if long_flag != 0 
                 {
-                    let r = (instruction >> 6) 0x7;
+                    let r = (instruction >> 6) & 0x7;
                     let val = vm.reg.general[r as usize];
                     vm.reg.pc = val;
                 } else {
@@ -94,11 +94,6 @@ impl OpCode
         } else {
             x
         }
-    }
-
-    fn cc(instruction: u16) -> u16
-    {
-        instruction >> 9 & 0x7
     }
 
     pub fn from_u16(instruction: u16) -> Option<Self>
