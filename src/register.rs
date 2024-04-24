@@ -44,13 +44,15 @@ impl Registers
         }
     }
 
-    pub fn update_flags(&mut self, result: u16)
+    pub fn update_flags(&mut self, dr: u16)
     {
-        self.cond = match result
-        {
-            0 => ConditionFlag::ZRO,
-            r if r >> 15 == 1 => ConditionFlag::POS,
-            _ => ConditionFlag::NEG,
+        let val = self.general[dr as usize];
+        self.cond = if val == 0 {
+            ConditionFlag::ZRO
+        } else if (val & 0x8000) != 0 {
+            ConditionFlag::NEG
+        } else {
+            ConditionFlag::POS
         };
     }
 }
