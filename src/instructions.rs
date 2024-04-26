@@ -30,10 +30,12 @@ impl OpCode
         match self {
             OpCode::BR => {
                 let offset = Self::sign_extend(instruction & 0x1FF, 9);
-                if vm.reg.cond.contains(ConditionFlag::ZRO) {
-                    vm.reg.cond = vm.reg.pc.wrapping_add(offset);
+                if vm.reg.cond.contains(ConditionFlag::ZRO) 
+                {
+                    let cond_flag = ConditionFlag::from_bits(offset as u16);
+                    vm.reg.cond = vm.reg.cond | cond_flag.expect("Expecting a non-empty value for the conditional execution of the BR' opcode");
                 }
-            }
+                }
             OpCode::ADD => {
                 let dr = (instruction >> 9) & 0x7;
                 let sr1 = (instruction >> 6) & 0x7;
