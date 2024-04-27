@@ -32,10 +32,11 @@ impl OpCode
                 let offset = Self::sign_extend(instruction & 0x1FF, 9);
                 if vm.reg.cond.contains(ConditionFlag::ZRO) 
                 {
-                    let cond_flag = ConditionFlag::from_bits(offset as u16);
-                    vm.reg.cond = vm.reg.cond | cond_flag.expect("Expecting a non-empty value for the conditional execution of the BR' opcode");
+                    let mut cond_flag = ConditionFlag::from_bits(offset as u16)
+                        .expect("xpecting a non-empty value for the conditional execution of the BR' opcode");
+                    std::mem::swap(&mut vm.reg.cond, &mut cond_flag);
                 }
-                }
+            }
             OpCode::ADD => {
                 let dr = (instruction >> 9) & 0x7;
                 let sr1 = (instruction >> 6) & 0x7;
@@ -84,6 +85,73 @@ impl OpCode
                     vm.reg.pc = vm.reg.pc.wrapping_add(pc_offset);
                 }
                 vm.reg.pc = r7;
+            }
+            OpCode::AND => {
+                let dr = (instruction >> 9) & 0x7;
+                let sr1 = (instruction >> 6) & 0x7;
+                let sr2 = instruction & 0x7;
+                let result = vm.reg.general[sr1 as usize] & vm.reg.general[sr2 as usize];
+                vm.reg.general[dr as usize] = result;
+                vm.reg.update_flags(result);
+            }
+            OpCode::LDR => {
+                let dr = (instruction >> 9) & 0x7;
+                let base_r = (instruction >> 6) & 0x7;
+                let offset = Self::sign_extend(instruction & 0x3F, 6);
+                let addr = vm.reg.general[base_r as usize].wrapping_add(offset);
+                vm.reg.general[dr as usize] = vm.memory[addr as usize];
+                vm.reg.update_flags(vm.reg.general[dr as usize]);
+            }
+            OpCode::STR => {
+                let sr = (instruction >> 9) & 0x7;
+                let base_r = (instruction >> 6) & 0x7;
+                let offset = Self::sign_extend(instruction & 0x3F, 6);
+                let addr = vm.reg.general[base_r as usize].wrapping_add(offset);
+                vm.memory[addr as usize] = vm.reg.general[sr as usize];
+            }
+            OpCode::NOT => {
+                let dr = (instruction >> 9) & 0x7;
+                let sr = (instruction >> 6) & 0x7;
+                let result = !vm.reg.general[sr as usize];
+                vm.reg.general[dr as usize] = result;
+                vm.reg.update_flags(result);
+            }
+            OpCode::LDI => {
+                let dr = (instruction >> 9) & 0x7;
+                let pc_offset = Self::sign_extend(instruction & 0x1FF, 9);
+                let addr = vm.reg.pc.wrapping_add(pc_offset);
+                let indirect_addr = vm.memory[addr as usize];
+                vm.reg.general[dr as usize] = vm.memory[indirect_addr as usize];
+                vm.reg.update_flags(vm.reg.general[dr as usize]);
+            }
+            OpCode::STI => {
+                let sr = (instruction >> 9) & 0x7;
+                let pc_offset = Self::sign_extend(instruction & 0x1FF, 9);
+                let addr = vm.reg.pc.wrapping_add(pc_offset);
+                let indirect_addr = vm.memory[addr as usize];
+                vm.memory[indirect_addr as usize] = vm.reg.general[sr as usize];
+            }
+            OpCode::JMP => {
+                let base_r = (instruction >> 6) & 0x7;
+                vm.reg.pc = vm.reg.general[base_r as usize];
+            }
+            OpCode::LEA => {
+                let dr = (instruction >> 9) & 0x7;
+                let pc_offset = Self::sign_extend(instruction & 0x1FF, 9);
+                let addr = vm.reg.pc.wrapping_add(pc_offset);
+                vm.reg.general[dr as usize] = addr;
+            }
+            OpCode::TRAP => {
+                let trap_vector = instruction & 0xFF;
+                if let Some(trap_code) = TrapCode::from_u8(trap_vector as u8)
+                {
+                    TrapCode::handle_trap(trap_code, vm);
+                } else {
+                    panic!("Unkown trap code: {}", trap_vector);
+                }
+            }
+            OpCode::RTI | OpCode::RES => {
+                todo!();
             }
         }
     }
@@ -191,6 +259,19 @@ impl TrapCode
             TrapCode::HALT => {
                 process::exit(0);
             }
+        }
+    }
+
+    pub fn from_u8(value: u8) -> Option<Self>
+    {
+        match value {
+            0x20 => Some(TrapCode::GETC),
+            0x21 => Some(TrapCode::OUT),
+            0x22 => Some(TrapCode::PUTS),
+            0x23 => Some(TrapCode::IN),
+            0x24 => Some(TrapCode::PUTSP),
+            0x25 => Some(TrapCode::HALT),
+            _ => None,
         }
     }
 
