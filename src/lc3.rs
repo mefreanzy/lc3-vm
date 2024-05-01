@@ -1,8 +1,10 @@
 use crate::register::Registers;
-use crate::instructions::OpCode
+use crate::instructions::OpCode;
 use std::env;
 use std::fs::File;
-use std::io::{self, BufRead};
+use termios::*;
+use std::os::unix::io::FromRawFd;
+use std::io::{self, BufReader, Read};
 use std::path::Path;
 
 const MEMORY_SIZE: usize = 1 << 16;
@@ -47,31 +49,56 @@ impl VM
 
 fn main()
 {
-    let args: Vec<String> = env::args().collect();
+    let stdin_fd = 0;
+    
+    let termios = Termios::from_fd(stdin_fd).expect("Failed to get terminal attributes");
+    let mut new_termios = termios.clone();
 
-    if args.len() != 2 
-    {
-        eprintln!("Usage cargo run <program-file.obj>");
-        std::process::exit(1);
-    }
+    new_termios.c_lflag &= !(ICANON | ECHO);
 
-    let fname = &args[1];
-    let f = File::open(fname).expect("Failed to open file");
-    let reader = io::BufReader::new(file);
+    tcsetattr(stdin_fd, TCSANOW, &mut new_termios).expect("Failed to set terminal attributes");
 
     let mut vm = VM::new();
 
-
-    for line in reader.lines()
+    let args: Vec<String> = env.args().collect();
+    if args.len() != 2
     {
-        if let Ok(line) = line
+        eprintln!("Usage: cargo run <program-file.obj>");
+        return;
+    }
+
+    let filename = &args[1];
+    let file = match File::open(filename) {
+        Ok(file) => file,
+        Err(err) => {
+            eprintln!("Error opening file: {}", err);
+            return;
+        }
+    };
+    let mut reader = BufReader::new(file);
+
+    let mut address = 0;
+    loop 
+    {
+        match reader.read_u16::<BigEndian>()
         {
-            let opcode = OpCode::from_u16(instruction).expect("Invalid opcode.");
-            opcode.execute(&mut vm, instruction);
-        } else {
-            eprintln!("Invalid instruction: {}", line)
+            Ok(instruction) {
+                vm.write_memory(address, instruction);
+                adress += 1;
+            }
+            Err(err) => {
+                if err.kind() == std::io::ErrorKind::UnexpectedEof {
+                    println!("End of file reached");
+                } else {
+                    eprintln!("Error reading file: {}", err);
+                }
+                break;
+            }
         }
     }
 
     vm.run();
+
+    tcsetattr(stdin_fd, TCSANOW, &termios).expect("Failed to restore terminal attributes");
+
 }
